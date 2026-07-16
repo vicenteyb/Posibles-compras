@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Posibles compras</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --paper: #faf9f5;
+    --panel: #f0ede3;
+    --ink: #17181c;
+    --ink-soft: #55554f;
+    --stamp: #c23b22;
+    --stamp-dark: #9c2d18;
+    --pen: #2b4a78;
+    --line: #d9d4c4;
+    --ok: #3a6b4c;
+    --radius: 2px;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(circle at 1px 1px, rgba(0,0,0,0.045) 1px, transparent 0) 0 0/14px 14px,
+      var(--paper);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+    padding: 32px 18px 80px;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation: none !important; transition: none !important; }
+  }
+
+  .wrap{ max-width: 880px; margin: 0 auto; }
+
+  /* ---- HEADER : receipt masthead ---- */
+  header.masthead{
+    text-align:center;
+    padding: 6px 0 22px;
+    border-bottom: 3px double var(--ink);
+    margin-bottom: 26px;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    color: var(--stamp);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .cart-icon{
+    width: 40px;
+    height: 40px;
+    color: var(--stamp);
+    margin-bottom: 10px;
+  }
+  h1{
+    font-family:'Archivo Black', sans-serif;
+    font-size: clamp(28px, 5vw, 44px);
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+    text-transform: uppercase;
+  }
+  .barcode{
+    height: 26px;
+    margin: 14px auto 0;
+    max-width: 260px;
+    background: repeating-linear-gradient(90deg,
+      var(--ink) 0 2px, transparent 2px 3px,
+      var(--ink) 3px 4px, transparent 4px 7px,
+      var(--ink) 7px 8px, transparent 8px 11px);
+  }
+  .sub{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 10px;
+  }
+
+  /* ---- FORM PANEL ---- */
+  .panel{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px 22px 24px;
+    margin-bottom: 34px;
+    position: relative;
+  }
+  .panel::before{
+    content: "ENTRADA";
+    position: absolute;
+    top: -11px; left: 18px;
+    background: var(--paper);
+    padding: 0 8px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.22em;
+    color: var(--ink-soft);
+  }
+  .url-row{
+    display:flex;
+    gap:10px;
+    margin-bottom: 16px;
+  }
+  .url-row input{
+    flex:1;
+  }
+  label{
+    display:block;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 5px;
+  }
+  input, select{
+    width:100%;
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size: 15px;
+    padding: 10px 11px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--paper);
+    color: var(--ink);
+  }
+  input:focus, select:focus, button:focus-visible{
+    outline: 2px solid var(--pen);
+    outline-offset: 1px;
+  }
+  .store-hint{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ok);
+    min-height: 16px;
+    margin-top: 6px;
+  }
+  .grid{
+    display:grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .grid2{
+    display:grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 620px){
+    .grid, .grid2{ grid-template-columns: 1fr; }
+    .url-row{ flex-direction: column; }
+  }
+  .field-group{ margin: 0; }
+
+  button.add-btn{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 13.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 13px 20px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button.add-btn:hover{ background: var(--stamp-dark); }
+  button.add-btn:disabled{ opacity: 0.6; cursor: default; }
+  button.scan-btn{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    padding: 0 14px;
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+  .error-msg{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--stamp-dark);
+    margin-top: 10px;
+  }
+
+  /* ---- LIST ---- */
+  .list-header{
+    display:flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .list-header h2{
+    font-family:'Archivo Black', sans-serif;
+    font-size: 17px;
+    text-transform: uppercase;
+    margin: 0;
+  }
+  .count{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  select.sort{
+    width:auto;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  .filter-row{
+    display:flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .filter-row select{ flex: 1 1 150px; }
+
+  .ticket{
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px 18px 14px;
+    margin-bottom: 14px;
+    position: relative;
+    display:grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 18px;
+    transition: border-left-color 0.15s ease;
+  }
+  .ticket.is-comprado{ border-left-color: var(--ok); }
+  .ticket.is-pendiente{ border-left-color: var(--stamp); }
+
+  .t-name{ display:flex; align-items:center; gap:8px; }
+  .t-cat{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    background: var(--panel);
+    padding: 2px 7px;
+    border-radius: 20px;
+  }
+
+  .status-btn{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+    padding: 5px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+  }
+  .status-btn.pendiente{
+    background: #fbe2dd;
+    color: var(--stamp-dark);
+  }
+  .status-btn.comprado{
+    background: #dcebe0;
+    color: var(--ok);
+  }
+  .status-btn:hover{ filter: brightness(0.96); }
+  .ticket::before, .ticket::after{
+    content:"";
+    position:absolute;
+    width:14px; height:14px;
+    background: var(--paper);
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px var(--line);
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .ticket::before{ left:-7px; }
+  .ticket::after{ right:-7px; }
+  .t-name{
+    font-family:'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    font-size: 16.5px;
+    grid-column: 1;
+  }
+  .t-price{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--stamp);
+    grid-row: 1 / 3;
+    grid-column: 2;
+    align-self: center;
+    white-space: nowrap;
+  }
+  .t-meta{
+    grid-column: 1;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    display:flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+  }
+  .store-dot{
+    display:inline-block;
+    width:8px; height:8px;
+    border-radius:50%;
+    margin-right:5px;
+    position:relative; top:-1px;
+  }
+  .t-footer{
+    grid-column: 1 / -1;
+    display:flex;
+    justify-content: space-between;
+    align-items:center;
+    border-top: 1px dashed var(--line);
+    margin-top: 10px;
+    padding-top: 9px;
+  }
+  .t-link{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--pen);
+    text-decoration: none;
+    word-break: break-all;
+  }
+  .t-link:hover{ text-decoration: underline; }
+  .del-btn{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    padding: 5px 9px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .del-btn:hover{ border-color: var(--stamp); color: var(--stamp-dark); }
+
+  .empty{
+    text-align:center;
+    padding: 46px 20px;
+    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .loading{
+    text-align:center;
+    padding: 30px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .shared-note{
+    text-align:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    margin-top: 30px;
+    opacity: 0.75;
+  }
+
+  /* ---- LOGIN ---- */
+  #loginScreen{
+    max-width: 360px;
+    margin: 12vh auto 0;
+    padding: 0 18px;
+  }
+  .login-card{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 26px 24px 24px;
+  }
+  .login-card h1{
+    font-family:'Archivo Black', sans-serif;
+    font-size: 22px;
+    text-transform: uppercase;
+    margin: 0 0 4px;
+    text-align:center;
+  }
+  .login-sub{
+    text-align:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    margin-bottom: 20px;
+  }
+  .login-card label{ margin-top: 12px; }
+  .login-card label:first-of-type{ margin-top: 0; }
+  button.login-btn{
+    width:100%;
+    margin-top: 18px;
+    font-family:'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 13.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+  button.login-btn:hover{ background: var(--stamp-dark); }
+  button.login-btn:disabled{ opacity: 0.55; cursor: default; }
+  .login-error{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--stamp-dark);
+    margin-top: 12px;
+    min-height: 14px;
+  }
+  .login-error.success{ color: var(--ok); }
+  #passWrap{ margin-top: 0; }
+
+  /* ---- ADMIN PANEL (solicitudes pendientes) ---- */
+  .admin-panel{
+    background: #fdf4e9;
+    border: 1px solid #e8cf9e;
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    margin-bottom: 24px;
+  }
+  .admin-panel-title{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 12.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--stamp-dark);
+    margin-bottom: 10px;
+  }
+  .pending-empty{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .pending-item{
+    display:flex;
+    justify-content: space-between;
+    align-items:center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--line);
+    flex-wrap: wrap;
+  }
+  .pending-item:last-child{ border-bottom: none; }
+  .pending-name{
+    font-family:'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .pending-actions{ display:flex; gap: 8px; }
+  .approve-btn, .reject-btn{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-radius: var(--radius);
+    padding: 6px 10px;
+    cursor: pointer;
+  }
+  .approve-btn{ background: var(--ok); color: var(--paper); border: none; }
+  .approve-btn:hover{ filter: brightness(0.92); }
+  .reject-btn{ background: none; border: 1px solid var(--stamp); color: var(--stamp-dark); }
+  .reject-btn:hover{ background: #fbe2dd; }
+  .login-note{
+    text-align:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    margin-top: 16px;
+    opacity: 0.8;
+  }
+  .session-row{
+    display:flex;
+    justify-content: center;
+    align-items:center;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .user-chip{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .logout-btn{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    padding: 4px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+  .logout-btn:hover{ border-color: var(--stamp); color: var(--stamp-dark); }
+
+  .name-prompt{
+    display:flex;
+    justify-content:center;
+    gap: 8px;
+    margin-top: 12px;
+    max-width: 320px;
+    margin-left:auto;
+    margin-right:auto;
+  }
+  .name-prompt input{ flex:1; padding: 8px 10px; font-size: 13px; }
+  .name-prompt button.login-btn{
+    width:auto;
+    margin-top:0;
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <h1>Acceso</h1>
+    <div class="login-sub">Posibles compras &middot; solo personas aprobadas</div>
+    <label for="nombreAccesoInput">Tu nombre</label>
+    <input id="nombreAccesoInput" type="text" placeholder="Escribe tu nombre" autocomplete="off">
+    <div id="passWrap" style="display:none;">
+      <label for="passAccesoInput">Contraseña privada</label>
+      <input id="passAccesoInput" type="password" placeholder="••••••••" autocomplete="off">
+      <button class="login-btn" id="adminLoginBtn">Iniciar sesión</button>
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <button class="login-btn" id="solicitarBtn" style="margin-top:14px;">Mandar solicitud</button>
+    <div class="login-note">Escribe tu nombre y presiona "Mandar solicitud" para pedir acceso a la lista.</div>
+  </div>
+</div>
+
+<div id="pendingScreen" style="display:none; max-width: 360px; margin: 12vh auto 0; padding: 0 18px;">
+  <div class="login-card">
+    <h1>Solicitud enviada</h1>
+    <div class="login-sub" id="pendingMsg">Tu solicitud está pendiente de aprobación.</div>
+  </div>
+</div>
+
+<div class="wrap" id="appScreen" style="display:none;">
+
+  <header class="masthead">
+    <svg class="cart-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M6 8H11L15.5 29.5C15.8 30.9 17 32 18.5 32H34.5C35.9 32 37.1 31 37.4 29.6L41 14H13" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="19.5" cy="39.5" r="2.8" fill="currentColor"/>
+      <circle cx="33.5" cy="39.5" r="2.8" fill="currentColor"/>
+    </svg>
+    <div class="eyebrow">Posibles compras &middot; lista compartida</div>
+    <h1>Posibles compras</h1>
+    <div class="barcode"></div>
+    <div class="sub" id="dateNow"></div>
+    <div class="session-row">
+      <span class="user-chip" id="userChip"></span>
+      <button class="logout-btn" id="editNameBtn">Cambiar nombre</button>
+      <button class="logout-btn" id="logoutBtn">Cerrar sesión</button>
+    </div>
+    <div class="name-prompt" id="namePrompt" style="display:none;">
+      <input id="nameInput" type="text" placeholder="Tu nombre de usuario" autocomplete="off">
+      <button class="login-btn" id="saveNameBtn">Guardar</button>
+    </div>
+  </header>
+
+  <div class="admin-panel" id="adminPanel" style="display:none;">
+    <div class="admin-panel-title">Solicitudes pendientes <span id="pendingCount">(0)</span></div>
+    <div id="pendingList"></div>
+  </div>
+
+  <div class="panel">
+    <div class="url-row">
+      <div style="flex:1">
+        <label for="urlInput">Pega el link del producto</label>
+        <input id="urlInput" type="url" placeholder="https://www.mercadolibre.cl/... , amazon.com/... , falabella.com/...">
+        <div class="store-hint" id="storeHint">&nbsp;</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="field-group">
+        <label for="nombreInput">Nombre del producto</label>
+        <input id="nombreInput" type="text" placeholder="Se intenta autocompletar (o escríbelo tú)">
+      </div>
+      <div class="field-group">
+        <label for="precioInput">Precio (CLP)</label>
+        <input id="precioInput" type="number" min="0" placeholder="Se intenta autocompletar">
+      </div>
+      <div class="field-group">
+        <label for="tiendaInput">Tienda</label>
+        <input id="tiendaInput" type="text" placeholder="Se detecta del link">
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="field-group">
+        <label for="personaInput">Agregado por</label>
+        <input id="personaInput" type="text" placeholder="Tu nombre">
+      </div>
+      <div class="field-group">
+        <label for="fechaInput">Fecha</label>
+        <input id="fechaInput" type="date">
+      </div>
+      <div class="field-group">
+        <label for="categoriaInput">Categoría</label>
+        <select id="categoriaInput">
+          <option value="Baño">Baño</option>
+          <option value="Cocina">Cocina</option>
+          <option value="Living">Living</option>
+          <option value="Personal">Personal</option>
+          <option value="Negocio">Negocio</option>
+          <option value="Otros">Otros</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="add-btn" id="addBtn">+ Agregar a la lista</button>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <div class="list-header">
+    <h2>Productos registrados</h2>
+    <span class="count" id="countLabel">0 productos</span>
+  </div>
+
+  <div class="filter-row">
+    <select class="sort" id="filterTienda">
+      <option value="">Todas las tiendas</option>
+    </select>
+    <select class="sort" id="filterCategoria">
+      <option value="">Todas las categorías</option>
+      <option value="Baño">Baño</option>
+      <option value="Cocina">Cocina</option>
+      <option value="Living">Living</option>
+      <option value="Personal">Personal</option>
+      <option value="Negocio">Negocio</option>
+      <option value="Otros">Otros</option>
+    </select>
+    <select class="sort" id="filterEstado">
+      <option value="">Comprado y pendiente</option>
+      <option value="pendiente">Solo pendientes</option>
+      <option value="comprado">Solo comprados</option>
+    </select>
+    <select class="sort" id="sortSelect">
+      <option value="new">Más recientes primero</option>
+      <option value="old">Más antiguos primero</option>
+      <option value="cheap">Menor precio</option>
+      <option value="expensive">Mayor precio</option>
+    </select>
+  </div>
+
+  <div id="listContainer">
+    <div class="loading">Cargando registro...</div>
+  </div>
+
+  <div class="shared-note">Estos datos son compartidos entre las personas aprobadas.</div>
+
+</div>
+
+<script>
+// ============================================================
+// 1) PEGA AQUÍ LA CONFIGURACIÓN DE TU PROYECTO FIREBASE
+//    (Firebase Console > Configuración del proyecto > Tus apps > Web)
+// ============================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyBdZMHUUli6rmusX5sUOMaKMMkHBxP97tQ",
+  authDomain: "productos-1bad7.firebaseapp.com",
+  projectId: "productos-1bad7",
+  storageBucket: "productos-1bad7.firebasestorage.app",
+  messagingSenderId: "313398120702",
+  appId: "1:313398120702:web:f8e01a72a37fe9565015af"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const LISTA_DOC = db.collection('compras').doc('lista');
+const solicitudesCol = db.collection('solicitudes');
+let unsubscribeSnapshot = null;
+
+// nombre y contraseña privada del administrador (Vicente)
+const ADMIN_NOMBRE = 'vicente';
+const ADMIN_PASS = 'vicente.s.v1';
+
+let modoAdmin = false;
+let nombreUsuario = '';
+let unsubscribeSolicitud = null;
+let unsubscribePendientes = null;
+
+let productos = [];
+
+const storeMap = [
+  { match: h => h.includes('mercadolibre') || h.includes('mercadolivre'), name: 'Mercado Libre', color: '#ffd100' },
+  { match: h => h.includes('amazon'), name: 'Amazon', color: '#ff9900' },
+  { match: h => h.includes('falabella'), name: 'Falabella', color: '#6dbf47' },
+  { match: h => h.includes('lapolar'), name: 'La Polar', color: '#00a651' },
+  { match: h => h.includes('paris.cl'), name: 'Paris', color: '#c8102e' },
+  { match: h => h.includes('ripley'), name: 'Ripley', color: '#e30613' },
+  { match: h => h.includes('pcfactory'), name: 'PC Factory', color: '#0072bc' },
+  { match: h => h.includes('hites'), name: 'Hites', color: '#e4032e' },
+];
+
+function detectStore(url){
+  try{
+    const u = new URL(url);
+    const host = u.hostname.replace('www.', '');
+    const found = storeMap.find(s => s.match(host));
+    if(found) return found;
+    const label = host.split('.')[0];
+    return { name: label.charAt(0).toUpperCase() + label.slice(1), color: '#8a8578' };
+  }catch(e){ return null; }
+}
+
+function storeColor(name){
+  const found = storeMap.find(s => s.name === name);
+  return found ? found.color : '#8a8578';
+}
+
+function todayISO(){
+  const d = new Date();
+  return d.toISOString().slice(0,10);
+}
+
+function formatDateDisplay(iso){
+  try{
+    const [y,m,d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  }catch(e){ return iso; }
+}
+
+function formatCLP(n){
+  return '$' + Number(n).toLocaleString('es-CL');
+}
+
+// ---- autocompletado "mejor esfuerzo" desde el link ----
+const CATEGORY_KEYWORDS = {
+  'Baño': ['toalla','ducha','inodoro','wc','grifería','griferia','tina','espejo de baño','jabonera','cortina de baño','alfombra de baño','shampoo','jabón','jabon'],
+  'Cocina': ['olla','sartén','sarten','cuchillo','licuadora','microondas','refrigerador','horno','batidora','vajilla','plato','vaso','hervidor','cafetera','termo','sifón','sifon','tostadora','freidora'],
+  'Living': ['sofá','sofa','sillón','sillon','mesa de centro','televisor',' tv ','alfombra','cortina','lámpara','lampara','cuadro','estante','decoración','decoracion','parlante','mueble de tv'],
+  'Personal': ['ropa','zapatilla','zapato','polera','camisa','pantalón','pantalon','vestido','chaqueta','reloj','perfume','maquillaje','mochila','audífono','audifono','celular','smartphone','notebook','laptop','skincare','cepillo de dientes','lentes'],
+  'Negocio': ['oficina','impresora','proyector','silla de oficina','escritorio','pos ','caja registradora','notebook empresarial','archivador','pizarra'],
+};
+
+function guessCategory(nombre){
+  if(!nombre) return '';
+  const low = nombre.toLowerCase();
+  for(const [cat, words] of Object.entries(CATEGORY_KEYWORDS)){
+    if(words.some(w => low.includes(w))) return cat;
+  }
+  return '';
+}
+
+function getMetaContent(doc, prop){
+  const el = doc.querySelector(`meta[property="${prop}"]`) || doc.querySelector(`meta[name="${prop}"]`);
+  return el ? (el.getAttribute('content') || '').trim() : '';
+}
+
+function parsePrice(raw){
+  if(raw === null || raw === undefined) return '';
+  let s = String(raw).trim().replace(/[^\d.,]/g, '');
+  if(!s) return '';
+  if(s.includes(',') && s.includes('.')){
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if(s.includes(',')){
+    const parts = s.split(',');
+    s = parts[parts.length - 1].length === 3 ? s.replace(/,/g, '') : s.replace(',', '.');
+  } else if(s.includes('.')){
+    const parts = s.split('.');
+    if(parts[parts.length - 1].length === 3) s = s.replace(/\./g, '');
+  }
+  const num = parseFloat(s);
+  return isNaN(num) ? '' : Math.round(num);
+}
+
+const CORS_PROXIES = [
+  u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+];
+
+async function fetchHtmlViaProxy(url){
+  for(const buildUrl of CORS_PROXIES){
+    try{
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 9000);
+      const res = await fetch(buildUrl(url), { signal: controller.signal });
+      clearTimeout(timer);
+      if(res.ok){
+        const text = await res.text();
+        if(text && text.length > 200) return text;
+      }
+    }catch(e){ /* intenta el siguiente proxy */ }
+  }
+  return null;
+}
+
+async function fetchProductInfo(url){
+  const html = await fetchHtmlViaProxy(url);
+  if(!html) return { ok: false };
+
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+
+  let nombre = getMetaContent(doc, 'og:title') || getMetaContent(doc, 'twitter:title') || (doc.querySelector('title')?.textContent || '').trim();
+  nombre = nombre.split(' | ')[0].split(' - MercadoLibre')[0].trim().slice(0, 120);
+
+  let precioRaw = getMetaContent(doc, 'product:price:amount') || getMetaContent(doc, 'og:price:amount');
+
+  if(!precioRaw){
+    const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
+    outer:
+    for(const s of scripts){
+      try{
+        const data = JSON.parse(s.textContent);
+        const items = Array.isArray(data) ? data : (data['@graph'] || [data]);
+        for(const item of items){
+          const offer = item.offers || item.Offers;
+          const offerObj = Array.isArray(offer) ? offer[0] : offer;
+          if(offerObj && offerObj.price){ precioRaw = offerObj.price; }
+          if(!nombre && item.name){ nombre = item.name; }
+          if(precioRaw) break outer;
+        }
+      }catch(e){ /* ignora bloques que no sean JSON válido */ }
+    }
+  }
+
+  return {
+    ok: true,
+    nombre: nombre || '',
+    precio: parsePrice(precioRaw)
+  };
+}
+
+// init date fields
+document.getElementById('fechaInput').value = todayISO();
+document.getElementById('dateNow').textContent = 'Hoy: ' + formatDateDisplay(todayISO());
+
+// detect store as user pastes/types url
+const urlInput = document.getElementById('urlInput');
+const storeHint = document.getElementById('storeHint');
+const tiendaInput = document.getElementById('tiendaInput');
+
+function handleUrlChange(){
+  const val = urlInput.value.trim();
+  if(!val){ storeHint.textContent = '\u00a0'; return; }
+  const s = detectStore(val);
+  if(s){
+    storeHint.textContent = 'Tienda detectada: ' + s.name;
+    if(!tiendaInput.dataset.userEdited){
+      tiendaInput.value = s.name;
+    }
+  } else {
+    storeHint.textContent = 'No se pudo detectar la tienda, escríbela manualmente.';
+  }
+}
+urlInput.addEventListener('input', handleUrlChange);
+urlInput.addEventListener('paste', () => setTimeout(handleUrlChange, 30));
+tiendaInput.addEventListener('input', () => { tiendaInput.dataset.userEdited = '1'; });
+document.getElementById('categoriaInput').addEventListener('change', e => { e.target.dataset.userEdited = '1'; });
+
+// ---- storage (Firestore, en tiempo real) ----
+function startListening(){
+  document.getElementById('listContainer').innerHTML = '<div class="loading">Cargando registro...</div>';
+  unsubscribeSnapshot = LISTA_DOC.onSnapshot(
+    doc => {
+      productos = doc.exists && Array.isArray(doc.data().items) ? doc.data().items : [];
+      render();
+    },
+    err => {
+      document.getElementById('listContainer').innerHTML =
+        '<div class="empty">No se pudo cargar la lista (revisa las reglas de Firestore).</div>';
+    }
+  );
+}
+
+function stopListening(){
+  if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+}
+
+async function saveProductos(){
+  try{
+    await LISTA_DOC.set({ items: productos });
+  }catch(e){
+    document.getElementById('errorMsg').textContent = 'No se pudo guardar. Revisa tu conexión o permisos.';
+  }
+}
+
+// ---- acceso por nombre y solicitud (sin cuentas de correo) ----
+const nombreAccesoInput = document.getElementById('nombreAccesoInput');
+const passWrap = document.getElementById('passWrap');
+const passAccesoInput = document.getElementById('passAccesoInput');
+const loginError = document.getElementById('loginError');
+const solicitarBtn = document.getElementById('solicitarBtn');
+const adminLoginBtn = document.getElementById('adminLoginBtn');
+
+function showScreen(id){
+  document.getElementById('loginScreen').style.display = (id === 'loginScreen') ? 'block' : 'none';
+  document.getElementById('pendingScreen').style.display = (id === 'pendingScreen') ? 'block' : 'none';
+  document.getElementById('appScreen').style.display = (id === 'appScreen') ? 'block' : 'none';
+}
+
+function init(){
+  modoAdmin = localStorage.getItem('pc_admin') === '1';
+  const solicitudGuardada = localStorage.getItem('pc_solicitud_id');
+
+  if(modoAdmin){
+    entrarComoAdmin();
+  } else if(solicitudGuardada){
+    verificarSolicitud(solicitudGuardada);
+  } else {
+    showScreen('loginScreen');
+  }
+}
+
+function entrarComoAdmin(){
+  modoAdmin = true;
+  nombreUsuario = 'Vicente';
+  localStorage.setItem('pc_admin', '1');
+  document.getElementById('userChip').textContent = 'Vicente (admin)';
+  document.getElementById('editNameBtn').style.display = 'none';
+  document.getElementById('adminPanel').style.display = 'block';
+  document.getElementById('personaInput').value = 'Vicente';
+  showScreen('appScreen');
+  startListening();
+  escucharSolicitudesPendientes();
+}
+
+function entrarComoUsuario(nombre){
+  nombreUsuario = nombre;
+  localStorage.setItem('pc_nombre', nombre);
+  document.getElementById('userChip').textContent = nombre;
+  document.getElementById('editNameBtn').style.display = '';
+  document.getElementById('adminPanel').style.display = 'none';
+  document.getElementById('personaInput').value = nombre;
+  showScreen('appScreen');
+  startListening();
+}
+
+function verificarSolicitud(id){
+  showScreen('pendingScreen');
+  const pendingMsg = document.getElementById('pendingMsg');
+  pendingMsg.textContent = 'Revisando el estado de tu solicitud...';
+  unsubscribeSolicitud = solicitudesCol.doc(id).onSnapshot(doc => {
+    if(!doc.exists){
+      localStorage.removeItem('pc_solicitud_id');
+      showScreen('loginScreen');
+      return;
+    }
+    const data = doc.data();
+    if(data.estado === 'aprobado'){
+      if(unsubscribeSolicitud){ unsubscribeSolicitud(); unsubscribeSolicitud = null; }
+      entrarComoUsuario(data.nombre);
+    } else if(data.estado === 'rechazado'){
+      pendingMsg.textContent = 'Tu solicitud fue rechazada. Habla con Vicente si crees que es un error.';
+    } else {
+      pendingMsg.textContent = 'Tu solicitud está pendiente de aprobación. Esta pantalla se actualiza sola cuando te acepten, no necesitas recargar.';
+    }
+  }, err => {
+    pendingMsg.textContent = 'No se pudo verificar tu solicitud. Intenta recargar la página.';
+  });
+}
+
+nombreAccesoInput.addEventListener('input', () => {
+  const val = nombreAccesoInput.value.trim().toLowerCase();
+  passWrap.style.display = (val === ADMIN_NOMBRE) ? 'block' : 'none';
+  loginError.textContent = '';
+  loginError.classList.remove('success');
+});
+
+adminLoginBtn.addEventListener('click', () => {
+  const nombre = nombreAccesoInput.value.trim().toLowerCase();
+  const pass = passAccesoInput.value;
+  if(nombre === ADMIN_NOMBRE && pass === ADMIN_PASS){
+    entrarComoAdmin();
+  } else {
+    loginError.classList.remove('success');
+    loginError.textContent = 'Nombre o contraseña incorrectos.';
+  }
+});
+
+passAccesoInput.addEventListener('keydown', e => { if(e.key === 'Enter') adminLoginBtn.click(); });
+
+solicitarBtn.addEventListener('click', async () => {
+  const nombre = nombreAccesoInput.value.trim();
+  loginError.classList.remove('success');
+  loginError.textContent = '';
+  if(!nombre){ loginError.textContent = 'Escribe tu nombre primero.'; return; }
+  solicitarBtn.disabled = true;
+  const originalText = solicitarBtn.textContent;
+  solicitarBtn.textContent = 'Enviando...';
+  try{
+    const ref = await solicitudesCol.add({
+      nombre,
+      estado: 'pendiente',
+      timestamp: Date.now()
+    });
+    localStorage.setItem('pc_solicitud_id', ref.id);
+    loginError.classList.add('success');
+    loginError.textContent = 'Has enviado correctamente la solicitud para acceder a la página.';
+    setTimeout(() => { verificarSolicitud(ref.id); }, 900);
+  }catch(e){
+    loginError.textContent = 'No se pudo enviar la solicitud. Revisa tu conexión e intenta de nuevo.';
+  }finally{
+    solicitarBtn.disabled = false;
+    solicitarBtn.textContent = originalText;
+  }
+});
+
+document.getElementById('editNameBtn').addEventListener('click', () => {
+  const namePrompt = document.getElementById('namePrompt');
+  const nameInput = document.getElementById('nameInput');
+  const isOpen = namePrompt.style.display === 'flex';
+  if(isOpen){
+    namePrompt.style.display = 'none';
+  } else {
+    nameInput.value = nombreUsuario;
+    namePrompt.style.display = 'flex';
+    nameInput.focus();
+  }
+});
+
+document.getElementById('saveNameBtn').addEventListener('click', () => {
+  const nameInput = document.getElementById('nameInput');
+  const nombre = nameInput.value.trim();
+  if(!nombre) return;
+  nombreUsuario = nombre;
+  localStorage.setItem('pc_nombre', nombre);
+  document.getElementById('userChip').textContent = nombre;
+  const personaInput = document.getElementById('personaInput');
+  if(!personaInput.value) personaInput.value = nombre;
+  document.getElementById('namePrompt').style.display = 'none';
+});
+
+document.getElementById('nameInput').addEventListener('keydown', e => {
+  if(e.key === 'Enter') document.getElementById('saveNameBtn').click();
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  if(unsubscribeSolicitud){ unsubscribeSolicitud(); unsubscribeSolicitud = null; }
+  if(unsubscribePendientes){ unsubscribePendientes(); unsubscribePendientes = null; }
+  stopListening();
+  localStorage.removeItem('pc_admin');
+  localStorage.removeItem('pc_solicitud_id');
+  localStorage.removeItem('pc_nombre');
+  modoAdmin = false;
+  nombreUsuario = '';
+  document.getElementById('adminPanel').style.display = 'none';
+  nombreAccesoInput.value = '';
+  passAccesoInput.value = '';
+  passWrap.style.display = 'none';
+  loginError.textContent = '';
+  loginError.classList.remove('success');
+  showScreen('loginScreen');
+});
+
+// ---- panel de admin: aprobar / rechazar solicitudes ----
+function escucharSolicitudesPendientes(){
+  unsubscribePendientes = solicitudesCol.where('estado', '==', 'pendiente').onSnapshot(snap => {
+    const pendCount = document.getElementById('pendingCount');
+    const list = document.getElementById('pendingList');
+    if(snap.empty){
+      pendCount.textContent = '(0)';
+      list.innerHTML = '<div class="pending-empty">No hay solicitudes pendientes.</div>';
+      return;
+    }
+    pendCount.textContent = '(' + snap.size + ')';
+    list.innerHTML = snap.docs.map(d => {
+      const data = d.data();
+      return `<div class="pending-item" data-id="${d.id}">
+        <span class="pending-name">${escapeHtml(data.nombre)}</span>
+        <div class="pending-actions">
+          <button class="approve-btn" data-id="${d.id}">Aprobar</button>
+          <button class="reject-btn" data-id="${d.id}">Rechazar</button>
+        </div>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('.approve-btn').forEach(btn => {
+      btn.addEventListener('click', () => resolverSolicitud(btn.dataset.id, 'aprobado'));
+    });
+    list.querySelectorAll('.reject-btn').forEach(btn => {
+      btn.addEventListener('click', () => resolverSolicitud(btn.dataset.id, 'rechazado'));
+    });
+  }, err => {
+    document.getElementById('pendingList').innerHTML = '<div class="pending-empty">No se pudieron cargar las solicitudes.</div>';
+  });
+}
+
+async function resolverSolicitud(id, estado){
+  try{
+    await solicitudesCol.doc(id).update({ estado });
+  }catch(e){
+    alert('No se pudo actualizar la solicitud. Intenta de nuevo.');
+  }
+}
+
+init();
+
+function render(){
+  const container = document.getElementById('listContainer');
+  const sortVal = document.getElementById('sortSelect').value;
+  const tiendaVal = document.getElementById('filterTienda').value;
+  const categoriaVal = document.getElementById('filterCategoria').value;
+  const estadoVal = document.getElementById('filterEstado').value;
+
+  let items = [...productos];
+  if(tiendaVal) items = items.filter(p => p.tienda === tiendaVal);
+  if(categoriaVal) items = items.filter(p => p.categoria === categoriaVal);
+  if(estadoVal) items = items.filter(p => p.estado === estadoVal);
+
+  if(sortVal === 'new') items.sort((a,b) => b.timestamp - a.timestamp);
+  else if(sortVal === 'old') items.sort((a,b) => a.timestamp - b.timestamp);
+  else if(sortVal === 'cheap') items.sort((a,b) => a.precio - b.precio);
+  else if(sortVal === 'expensive') items.sort((a,b) => b.precio - a.precio);
+
+  document.getElementById('countLabel').textContent =
+    productos.length === items.length
+      ? productos.length + (productos.length === 1 ? ' producto' : ' productos')
+      : items.length + ' de ' + productos.length + ' productos';
+
+  if(items.length === 0){
+    container.innerHTML = productos.length === 0
+      ? '<div class="empty">Aún no hay productos registrados.<br>Pega un link arriba para agregar el primero.</div>'
+      : '<div class="empty">Ningún producto coincide con los filtros elegidos.</div>';
+    return;
+  }
+
+  container.innerHTML = items.map(p => `
+    <div class="ticket is-${p.estado}" data-id="${p.id}">
+      <div class="t-name">${escapeHtml(p.nombre)} <span class="t-cat">${escapeHtml(p.categoria || 'Otros')}</span></div>
+      <div class="t-price">${formatCLP(p.precio)}</div>
+      <div class="t-meta">
+        <span><span class="store-dot" style="background:${storeColor(p.tienda)}"></span>${escapeHtml(p.tienda)}</span>
+        <span>Agregado por ${escapeHtml(p.agregadoPor)}</span>
+        <span>${formatDateDisplay(p.fecha)}</span>
+      </div>
+      <div class="t-footer">
+        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+          <button class="status-btn ${p.estado}" data-id="${p.id}">${p.estado === 'comprado' ? '✓ Comprado' : '● Pendiente'}</button>
+          <a class="t-link" href="${escapeAttr(p.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(truncateUrl(p.url))}</a>
+        </div>
+        <button class="del-btn" data-id="${p.id}">Eliminar</button>
+      </div>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.del-btn').forEach(btn => {
+    btn.addEventListener('click', () => deleteProducto(btn.dataset.id));
+  });
+  container.querySelectorAll('.status-btn').forEach(btn => {
+    btn.addEventListener('click', () => toggleEstado(btn.dataset.id));
+  });
+
+  // keep store filter options in sync with data present
+  const tiendaFilter = document.getElementById('filterTienda');
+  const currentSelection = tiendaFilter.value;
+  const tiendas = [...new Set(productos.map(p => p.tienda))].sort();
+  tiendaFilter.innerHTML = '<option value="">Todas las tiendas</option>' +
+    tiendas.map(t => `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('');
+  tiendaFilter.value = tiendas.includes(currentSelection) ? currentSelection : '';
+}
+
+async function toggleEstado(id){
+  const p = productos.find(x => x.id === id);
+  if(!p) return;
+  p.estado = p.estado === 'comprado' ? 'pendiente' : 'comprado';
+  render();
+  await saveProductos();
+}
+
+function truncateUrl(url){
+  return url.length > 60 ? url.slice(0, 57) + '...' : url;
+}
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escapeAttr(str){ return escapeHtml(str); }
+
+async function deleteProducto(id){
+  productos = productos.filter(p => p.id !== id);
+  render();
+  await saveProductos();
+}
+
+document.getElementById('sortSelect').addEventListener('change', render);
+document.getElementById('filterTienda').addEventListener('change', render);
+document.getElementById('filterCategoria').addEventListener('change', render);
+document.getElementById('filterEstado').addEventListener('change', render);
+
+document.getElementById('addBtn').addEventListener('click', async () => {
+  const errorMsg = document.getElementById('errorMsg');
+  const addBtn = document.getElementById('addBtn');
+  errorMsg.textContent = '';
+
+  const url = urlInput.value.trim();
+  if(!url){ errorMsg.textContent = 'Pega el link del producto primero.'; return; }
+  try{ new URL(url); } catch(e){
+    errorMsg.textContent = 'El link no parece una URL válida.';
+    return;
+  }
+
+  const nombreEl = document.getElementById('nombreInput');
+  const precioEl = document.getElementById('precioInput');
+  const categoriaEl = document.getElementById('categoriaInput');
+
+  // si falta el nombre o el precio, intenta traerlos automáticamente del link
+  if(!nombreEl.value.trim() || !precioEl.value){
+    addBtn.disabled = true;
+    const originalLabel = addBtn.textContent;
+    addBtn.textContent = 'Buscando información del producto...';
+
+    const info = await fetchProductInfo(url);
+
+    addBtn.disabled = false;
+    addBtn.textContent = originalLabel;
+
+    if(info.ok){
+      if(info.nombre && !nombreEl.value.trim()) nombreEl.value = info.nombre;
+      if(info.precio && !precioEl.value) precioEl.value = info.precio;
+      if(!categoriaEl.dataset.userEdited){
+        const guess = guessCategory(nombreEl.value);
+        if(guess) categoriaEl.value = guess;
+      }
+    }
+
+    if(!nombreEl.value.trim() || !precioEl.value){
+      errorMsg.textContent = info.ok
+        ? 'No pude leer todos los datos automáticamente. Revisa/completa nombre y precio, y presiona "Agregar a la lista" de nuevo.'
+        : 'No pude leer esta tienda automáticamente. Completa nombre y precio a mano y presiona "Agregar a la lista" de nuevo.';
+      return;
+    }
+  }
+
+  const nombre = nombreEl.value.trim();
+  const precio = precioEl.value;
+  const tienda = tiendaInput.value.trim();
+  const agregadoPor = document.getElementById('personaInput').value.trim();
+  const fecha = document.getElementById('fechaInput').value;
+  const categoria = categoriaEl.value;
+
+  if(!nombre || !precio || !tienda || !agregadoPor || !fecha){
+    errorMsg.textContent = 'Completa todos los campos antes de agregar.';
+    return;
+  }
+
+  const nuevo = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+    nombre, precio: Number(precio), tienda, agregadoPor, fecha, url, categoria,
+    estado: 'pendiente',
+    timestamp: Date.now()
+  };
+  productos.push(nuevo);
+  render();
+  await saveProductos();
+
+  // reset form
+  nombreEl.value = '';
+  precioEl.value = '';
+  tiendaInput.value = '';
+  tiendaInput.dataset.userEdited = '';
+  categoriaEl.dataset.userEdited = '';
+  urlInput.value = '';
+  storeHint.textContent = '\u00a0';
+  document.getElementById('fechaInput').value = todayISO();
+});
+
+</script>
+</body>
+</html>
