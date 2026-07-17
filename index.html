@@ -811,40 +811,74 @@ async function fetchHtmlViaProxy(url){
 }
 
 async function fetchProductInfo(url){
+  // método 1: proxy que trae el HTML completo, permite leer metaetiquetas (más preciso cuando funciona)
   const html = await fetchHtmlViaProxy(url);
-  if(!html) return { ok: false };
+  if(html){
+    const doc = new DOMParser().parseFromString(html, 'text/html');
 
-  const doc = new DOMParser().parseFromString(html, 'text/html');
+    let nombre = getMetaContent(doc, 'og:title') || getMetaContent(doc, 'twitter:title') || (doc.querySelector('title')?.textContent || '').trim();
+    nombre = nombre.split(' | ')[0].split(' - MercadoLibre')[0].trim().slice(0, 120);
 
-  let nombre = getMetaContent(doc, 'og:title') || getMetaContent(doc, 'twitter:title') || (doc.querySelector('title')?.textContent || '').trim();
-  nombre = nombre.split(' | ')[0].split(' - MercadoLibre')[0].trim().slice(0, 120);
+    let precioRaw = getMetaContent(doc, 'product:price:amount') || getMetaContent(doc, 'og:price:amount');
 
-  let precioRaw = getMetaContent(doc, 'product:price:amount') || getMetaContent(doc, 'og:price:amount');
+    if(!precioRaw){
+      const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
+      outer:
+      for(const s of scripts){
+        try{
+          const data = JSON.parse(s.textContent);
+          const items = Array.isArray(data) ? data : (data['@graph'] || [data]);
+          for(const item of items){
+            const offer = item.offers || item.Offers;
+            const offerObj = Array.isArray(offer) ? offer[0] : offer;
+            if(offerObj && offerObj.price){ precioRaw = offerObj.price; }
+            if(!nombre && item.name){ nombre = item.name; }
+            if(precioRaw) break outer;
+          }
+        }catch(e){ /* ignora bloques que no sean JSON válido */ }
+      }
+    }
 
-  if(!precioRaw){
-    const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
-    outer:
-    for(const s of scripts){
-      try{
-        const data = JSON.parse(s.textContent);
-        const items = Array.isArray(data) ? data : (data['@graph'] || [data]);
-        for(const item of items){
-          const offer = item.offers || item.Offers;
-          const offerObj = Array.isArray(offer) ? offer[0] : offer;
-          if(offerObj && offerObj.price){ precioRaw = offerObj.price; }
-          if(!nombre && item.name){ nombre = item.name; }
-          if(precioRaw) break outer;
-        }
-      }catch(e){ /* ignora bloques que no sean JSON válido */ }
+    if(nombre || precioRaw){
+      return { ok: true, nombre: nombre || '', precio: parsePrice(precioRaw) };
     }
   }
 
-  return {
-    ok: true,
-    nombre: nombre || '',
-    precio: parsePrice(precioRaw)
-  };
+  // método 2 (respaldo): lector de texto externo, útil cuando la tienda bloquea los proxies del método 1
+  const viaLector = await fetchProductInfoViaReader(url);
+  if(viaLector) return viaLector;
+
+  return { ok: false };
 }
+
+async function fetchProductInfoViaReader(url){
+  try{
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    const res = await fetch('https://r.jina.ai/' + url, { signal: controller.signal });
+    clearTimeout(timer);
+    if(!res.ok) return null;
+    const texto = await res.text();
+    if(!texto || texto.length < 50) return null;
+
+    let nombre = '';
+    const tituloMatch = texto.match(/^Title:\s*(.+)$/m);
+    if(tituloMatch) nombre = tituloMatch[1].split(' | ')[0].split(' - MercadoLibre')[0].trim().slice(0, 120);
+
+    let precio = '';
+    const preciosEncontrados = [...texto.matchAll(/\$\s?([\d]{1,3}(?:[.,]\d{3})+|\d{3,7})/g)];
+    for(const m of preciosEncontrados){
+      const parsed = parsePrice(m[1]);
+      if(parsed && parsed >= 100){ precio = parsed; break; }
+    }
+
+    if(!nombre && !precio) return null;
+    return { ok: true, nombre, precio };
+  }catch(e){
+    return null;
+  }
+}
+
 
 // init date fields
 document.getElementById('fechaInput').value = todayISO();
