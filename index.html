@@ -873,6 +873,14 @@ urlInput.addEventListener('paste', () => setTimeout(handleUrlChange, 30));
 tiendaInput.addEventListener('input', () => { tiendaInput.dataset.userEdited = '1'; });
 document.getElementById('categoriaInput').addEventListener('change', e => { e.target.dataset.userEdited = '1'; });
 
+// sugiere la categoría apenas se escribe el nombre a mano, sin depender del autocompletado del link
+document.getElementById('nombreInput').addEventListener('input', e => {
+  const categoriaEl = document.getElementById('categoriaInput');
+  if(categoriaEl.dataset.userEdited) return;
+  const guess = guessCategory(e.target.value);
+  if(guess) categoriaEl.value = guess;
+});
+
 // ---- storage (Firestore, en tiempo real) ----
 function startListening(){
   document.getElementById('listContainer').innerHTML = '<div class="loading">Cargando registro...</div>';
